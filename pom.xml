@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) 2020, GoMint, BlackyPaw and geNAZt
+  ~
+  ~ This code is licensed under the BSD license found in the
+  ~ LICENSE file in the root directory of this source tree.
+  -->
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.gomint</groupId>
+    <artifactId>indev-plugin</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+
+    <repositories>
+        <repository>
+            <id>projectlombok.org</id>
+            <url>https://projectlombok.org/edge-releases</url>
+        </repository>
+        <repository>
+            <id>central</id>
+            <url>https://repo1.maven.org/maven2</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.gomint</groupId>
+            <artifactId>gomint-api</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.discord4j</groupId>
+            <artifactId>discord4j-core</artifactId>
+            <version>3.1.0.RC3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>edge-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.1.2</version>
+                <executions>
+                    <execution>
+                        <id>copy-dependencies-netty-codecs</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <!--include all other dependencies-->
+                        <configuration>
+                            <includeArtifactIds>netty-codec-http,netty-codec-http2,netty-handler-proxy</includeArtifactIds>
+                            <outputDirectory>${project.build.directory}/classes/dependency</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-dependencies-discord</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <excludeScope>provided</excludeScope>
+                            <excludeGroupIds>io.netty</excludeGroupIds>
+                            <outputDirectory>${project.build.directory}/classes/dependency</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.0</version>
+                <configuration>
+                    <release>11</release>
+                    <source>11</source>
+                    <target>11</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>edge-SNAPSHOT</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
