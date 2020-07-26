@@ -3,8 +3,11 @@ package io.gomint.indev;
 import discord4j.common.util.Snowflake;
 import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
+import discord4j.core.event.domain.message.ReactionAddEvent;
 import discord4j.core.object.entity.Guild;
+import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.channel.GuildMessageChannel;
+import discord4j.core.object.reaction.ReactionEmoji;
 import io.gomint.config.InvalidConfigurationException;
 import io.gomint.indev.config.Config;
 import io.gomint.indev.listener.PlayerChatListener;
@@ -20,6 +23,11 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 @PluginName("InDev")
 @Version(major = 1, minor = 0)
@@ -31,6 +39,9 @@ public class IndevPlugin extends Plugin {
     private Config config;
     private GatewayDiscordClient discordClient;
     private GuildMessageChannel channel;
+
+    // Requested actions
+    private Map<Snowflake, Consumer<Boolean>> requests = new HashMap<>();
 
     @Override
     public void onStartup() {
@@ -70,6 +81,36 @@ public class IndevPlugin extends Plugin {
             return;
         }
 
+        // Fire actions based on reactions
+        this.discordClient.on(ReactionAddEvent.class).subscribe(event -> {
+            Optional<ReactionEmoji.Custom> emoji = event.getEmoji().asCustomEmoji();
+            if (emoji.isEmpty()) {
+                LOGGER.info("No custom emoji...");
+                return;
+            }
+
+            ReactionEmoji.Custom custom = emoji.get();
+            LOGGER.info("Custom emoji: {}", custom);
+            if (custom.getId().asLong() != 736854367742722068L) {
+                return;
+            }
+
+            Consumer<Boolean> action = this.requests.get(event.getMessageId());
+            if (action != null) {
+                // Check if user clicked on it has enough permissions to ack this
+                event.getUser().subscribe(user -> {
+                    user.asMember(guild.getId()).subscribe(member -> {
+                        member.getRoles().subscribe(role -> {
+                            if ("InDev Admin".equals(role.getName())) {
+                                action.accept(true);
+                                requests.remove(event.getMessageId());
+                            }
+                        });
+                    });
+                });
+            }
+        });
+
         // Register listeners
         registerListener(new PlayerJoinListener(this));
         registerListener(new PlayerChatListener(this));
@@ -79,8 +120,23 @@ public class IndevPlugin extends Plugin {
         this.sendMessage("InDev Server online: gomint.io");
     }
 
-    public void sendMessage(String line) {
-        this.channel.createMessage(line).block(Duration.ofSeconds(1));
+    public Message sendMessage(String line) {
+        return this.channel.createMessage(line).block(Duration.ofSeconds(1));
+    }
+
+    public void queueRequest(Message message, Consumer<Boolean> action) {
+        this.requests.put(message.getId(), action);
+
+        // Add reactions
+        message.addReaction(ReactionEmoji.custom(Snowflake.of(736854367742722068L), "white_check_mark", false));
+
+        // Add a timer for cleanup
+        this.getScheduler().schedule(() -> {
+            Consumer<Boolean> consumer = this.requests.remove(message.getId());
+            if (consumer != null) {
+                consumer.accept(false);
+            }
+        }, 1, TimeUnit.MINUTES);
     }
 
     @Override

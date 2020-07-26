@@ -1,7 +1,7 @@
 module gomint.indevplugin {
     requires gomint.api;
     requires lombok;
-    requires transitive slf4j.api;
+    requires transitive org.slf4j;
     requires discord4j.core;
     requires discord4j.common;
     requires reactor.core;
