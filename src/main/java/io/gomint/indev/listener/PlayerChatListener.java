@@ -8,29 +8,32 @@ import io.gomint.event.player.PlayerChatEvent;
 import io.gomint.indev.IndevPlugin;
 import io.gomint.world.Gamemode;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RequiredArgsConstructor
 public class PlayerChatListener implements EventListener {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PlayerChatEvent.class);
 
     private final IndevPlugin plugin;
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerChat(PlayerChatEvent event) {
-        Message message = this.plugin.sendMessage(event.getPlayer().getName() + ": " + event.getText());
+        LOGGER.info(event.getPlayer().getName() + "> " + event.getText());
 
         // Check if the last message is a request
         if (event.getText().startsWith("!request")) {
+            LOGGER.info("Got request");
             String[] split = event.getText().split(" ");
+            LOGGER.info("  {}", split[1]);
             switch (split[1]) {
                 case "creative":
-                    this.plugin.queueRequest(message, accepted -> {
-                        if (accepted) {
-                            if (event.getPlayer().isOnline()) {
-                                this.plugin.sendMessage("Giving " + event.getPlayer().getName() + " creative");
-                                event.getPlayer().setGamemode(Gamemode.CREATIVE);
-                            }
-                        }
-                    });
+                    this.plugin.sendMessage("Giving " + event.getPlayer().getName() + " creative");
+                    event.getPlayer().setGamemode(Gamemode.CREATIVE);
+                case "survival":
+                    this.plugin.sendMessage("Giving " + event.getPlayer().getName() + " survival");
+                    event.getPlayer().setGamemode(Gamemode.SURVIVAL);
             }
         }
     }

@@ -3,12 +3,15 @@ package io.gomint.indev;
 import discord4j.common.util.Snowflake;
 import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
+import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.event.domain.message.ReactionAddEvent;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.channel.GuildMessageChannel;
 import discord4j.core.object.reaction.ReactionEmoji;
+import io.gomint.GoMint;
 import io.gomint.config.InvalidConfigurationException;
+import io.gomint.entity.EntityPlayer;
 import io.gomint.indev.config.Config;
 import io.gomint.indev.listener.PlayerChatListener;
 import io.gomint.indev.listener.PlayerJoinListener;
@@ -49,7 +52,7 @@ public class IndevPlugin extends Plugin {
         this.config = new Config();
 
         try {
-            this.config.init( Paths.get(this.getDataFolder().getAbsolutePath(), "config.yml").toFile());
+            this.config.init(Paths.get(this.getDataFolder().getAbsolutePath(), "config.yml").toFile());
         } catch (InvalidConfigurationException e) {
             LOGGER.error("Could not load config", e);
             this.uninstall();
@@ -81,17 +84,49 @@ public class IndevPlugin extends Plugin {
             return;
         }
 
+        // Listen for incoming messages
+        this.discordClient.on(MessageCreateEvent.class).subscribe(event -> {
+            if (event.getMessage().getChannelId().equals(this.channel.getId())) {
+                String message = event.getMessage().getContent();
+
+                // Check if user clicked on it has enough permissions to ack this
+                event.getMember().get().getRoles().subscribe(role -> {
+                    if ("InDev Admin".equals(role.getName())) {
+                        switch (message) {
+                            case "stop":
+                            case "restart":
+                                this.getScheduler().execute(() -> GoMint.instance().shutdown());
+                                break;
+                            case "tps":
+                                this.getScheduler().execute(() -> sendMessage("Current TPS: " + GoMint.instance().getTPS()));
+                                break;
+                            default:
+                                if (message.startsWith("kick")) {
+                                    String player = message.substring(5);
+                                    this.getScheduler().execute(() -> {
+                                        EntityPlayer player1 = GoMint.instance().findPlayerByName(player);
+                                        if (player1 != null) {
+                                            player1.disconnect("You got kicked");
+                                        }
+                                    });
+                                }
+                        }
+                    }
+                });
+            }
+        });
+
         // Fire actions based on reactions
         this.discordClient.on(ReactionAddEvent.class).subscribe(event -> {
-            Optional<ReactionEmoji.Custom> emoji = event.getEmoji().asCustomEmoji();
+            Optional<ReactionEmoji.Unicode> emoji = event.getEmoji().asUnicodeEmoji();
             if (emoji.isEmpty()) {
-                LOGGER.info("No custom emoji...");
+                LOGGER.info("No unicode emoji...");
                 return;
             }
 
-            ReactionEmoji.Custom custom = emoji.get();
-            LOGGER.info("Custom emoji: {}", custom);
-            if (custom.getId().asLong() != 736854367742722068L) {
+            ReactionEmoji.Unicode custom = emoji.get();
+            LOGGER.info("Unicode emoji: {}", custom);
+            if (!"✅".equals(custom.getRaw())) {
                 return;
             }
 
@@ -102,8 +137,10 @@ public class IndevPlugin extends Plugin {
                     user.asMember(guild.getId()).subscribe(member -> {
                         member.getRoles().subscribe(role -> {
                             if ("InDev Admin".equals(role.getName())) {
-                                action.accept(true);
-                                requests.remove(event.getMessageId());
+                                this.getScheduler().execute(() -> {
+                                    requests.remove(event.getMessageId());
+                                    action.accept(true);
+                                });
                             }
                         });
                     });
@@ -128,7 +165,7 @@ public class IndevPlugin extends Plugin {
         this.requests.put(message.getId(), action);
 
         // Add reactions
-        message.addReaction(ReactionEmoji.custom(Snowflake.of(736854367742722068L), "white_check_mark", false));
+        message.addReaction(ReactionEmoji.unicode("✅"));
 
         // Add a timer for cleanup
         this.getScheduler().schedule(() -> {
