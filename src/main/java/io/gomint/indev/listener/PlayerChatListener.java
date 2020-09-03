@@ -20,6 +20,8 @@ public class PlayerChatListener implements EventListener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerChat(PlayerChatEvent event) {
+        this.plugin.sendMessage(event.getPlayer().getName() + ": " + event.getText());
+
         LOGGER.info(event.getPlayer().getName() + "> " + event.getText());
 
         // Check if the last message is a request
@@ -31,9 +33,11 @@ public class PlayerChatListener implements EventListener {
                 case "creative":
                     this.plugin.sendMessage("Giving " + event.getPlayer().getName() + " creative");
                     event.getPlayer().setGamemode(Gamemode.CREATIVE);
+                    break;
                 case "survival":
                     this.plugin.sendMessage("Giving " + event.getPlayer().getName() + " survival");
                     event.getPlayer().setGamemode(Gamemode.SURVIVAL);
+                    break;
             }
         }
     }
